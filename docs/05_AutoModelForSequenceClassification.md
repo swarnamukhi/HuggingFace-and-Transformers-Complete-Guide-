@@ -100,29 +100,55 @@ This class automatically builds:
 
 ```
                 BERT
-Embedding
-     ↓
-Transformer Layer 1
-     ↓
-Transformer Layer 2
-     ↓
-...
-     ↓
-Transformer Layer 12
-     ↓
-Hidden States
-     ↓
-──────────────────────────────
-Sequence Classification Head
-──────────────────────────────
-     ↓
-Linear Layer
-     ↓
-Logits
-     ↓
-Softmax
-     ↓
-Prediction
+                     Sentence
+                         │
+                         ▼
+                    AutoTokenizer
+                         │
+                         ▼
+                 Input IDs + Attention Mask
+                         │
+                         ▼
+                   Embedding Layer
+                         │
+                         ▼
+                 Transformer Layer 1
+                         │
+                         ▼
+                 Transformer Layer 2
+                         │
+                         ▼
+                        ...
+                         │
+                         ▼
+                Transformer Layer 12
+                         │
+                         ▼
+                   Hidden States
+                         │
+                         ▼
+             Sequence Classification Head
+                         │
+                         ▼
+                    Linear Layer
+                         │
+                         ▼
+                 Logits (Raw Scores)
+                         │
+          ┌──────────────┴──────────────┐
+          │                             │
+          ▼                             ▼
+  torch.argmax()                Softmax (Optional)
+          │                             │
+          ▼                             ▼
+      Class ID                  Probabilities
+          │                             │
+          └──────────────┬──────────────┘
+                         ▼
+              model.config.id2label
+                         │
+                         ▼
+            Final Prediction (Positive / Negative)
 ```
 
 Now the model can classify text.
