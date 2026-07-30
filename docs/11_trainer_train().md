@@ -763,6 +763,412 @@ Validation only measures model performance.
 No learning occurs during validation.
 
 ---
+---
+
+# What Happens After Every Epoch?
+
+One common question is:
+
+> After the model updates its weights during training, why do we run the validation dataset?
+
+The answer is:
+
+**Validation measures how well the newly learned model performs on data it has never trained on.**
+
+---
+
+# Step 1 : Training Starts
+
+Initially, the model contains pretrained weights.
+
+```
+Pretrained Model
+
+↓
+
+Initial Weights
+```
+
+During training, batches from the **training dataset** are processed.
+
+```
+Training Batch
+
+↓
+
+Forward Pass
+
+↓
+
+Compute Loss
+
+↓
+
+Backward Pass
+
+↓
+
+Optimizer Updates Weights
+```
+
+This process repeats for every batch.
+
+For example,
+
+```
+Batch 1
+
+↓
+
+Weights Updated
+
+↓
+
+Batch 2
+
+↓
+
+Weights Updated
+
+↓
+
+...
+
+↓
+
+Batch 1193
+
+↓
+
+Weights Updated
+```
+
+After the last batch,
+
+**Epoch 1 is complete.**
+
+---
+
+# Step 2 : Model Has New Weights
+
+At the end of Epoch 1,
+
+the model is no longer using its original weights.
+
+It now contains **updated weights** learned from the training dataset.
+
+```
+Initial Weights
+
+↓
+
+Training
+
+↓
+
+Updated Weights
+```
+
+---
+
+# Step 3 : Validation Begins
+
+Now the Trainer evaluates the **validation dataset**.
+
+Notice something important.
+
+The Trainer **does not restore the old weights**.
+
+Instead,
+
+it uses the **latest updated weights**.
+
+```
+Updated Model
+
+↓
+
+Validation Dataset
+
+↓
+
+Forward Pass
+
+↓
+
+Predictions
+
+↓
+
+Validation Loss
+```
+
+Therefore,
+
+the validation loss tells us
+
+**how well the updated model performs on unseen data.**
+
+---
+
+# Does Validation Update the Weights?
+
+**No.**
+
+During validation,
+
+the Trainer performs only a **forward pass**.
+
+```
+Validation Data
+
+↓
+
+Forward Pass
+
+↓
+
+Predictions
+
+↓
+
+Validation Loss
+```
+
+The following operations do **not** happen:
+
+- No Backward Pass
+- No Gradient Calculation
+- No Optimizer Step
+- No Weight Updates
+
+The model is only being tested.
+
+---
+
+# Complete Flow
+
+```
+Initial Weights
+
+        │
+
+        ▼
+
+Training Dataset
+
+        │
+
+        ▼
+
+Forward Pass
+
+        │
+
+        ▼
+
+Loss
+
+        │
+
+        ▼
+
+Backward Pass
+
+        │
+
+        ▼
+
+Optimizer Updates Weights
+
+        │
+
+        ▼
+
+Updated Weights
+
+        │
+
+        ▼
+
+Validation Dataset
+
+        │
+
+        ▼
+
+Forward Pass Only
+
+        │
+
+        ▼
+
+Validation Loss
+
+        │
+
+        ▼
+
+No Weight Updates
+```
+
+---
+
+# Why Do We Validate After Updating the Weights?
+
+The purpose of training is to improve the model.
+
+After improving the model,
+
+we immediately test its new performance.
+
+Think of it like studying for an exam.
+
+```
+Study
+
+↓
+
+Learn New Concepts
+
+↓
+
+Take Practice Test
+```
+
+The practice test measures
+
+how much you learned after studying.
+
+Similarly,
+
+validation measures
+
+how much the model improved after one epoch of training.
+
+---
+
+# What Happens Next?
+
+Suppose
+
+```python
+num_train_epochs = 3
+```
+
+The complete training process becomes
+
+```
+Epoch 1
+
+│
+
+├── Train
+
+├── Update Weights
+
+└── Validate (using updated weights)
+
+↓
+
+Epoch 2
+
+│
+
+├── Train
+
+├── Update Weights
+
+└── Validate (using updated weights)
+
+↓
+
+Epoch 3
+
+│
+
+├── Train
+
+├── Update Weights
+
+└── Validate (using updated weights)
+
+↓
+
+Training Complete
+```
+
+Notice that
+
+each epoch starts with the weights learned during the previous epoch.
+
+---
+
+# Example
+
+Suppose after Epoch 1,
+
+the Trainer prints
+
+```
+Epoch    Training Loss    Validation Loss
+
+1        0.625094         0.484927
+```
+
+This means
+
+```
+Epoch 1 Training
+
+↓
+
+Weights Updated
+
+↓
+
+Validation Using Updated Weights
+
+↓
+
+Validation Loss = 0.484927
+```
+
+The validation loss is **not** computed using the original pretrained model.
+
+It is computed using the **newly updated model**.
+
+---
+
+# Common Misconceptions
+
+### ❌ Validation uses the original pretrained weights.
+
+Incorrect.
+
+Validation always uses the latest weights learned during training.
+
+---
+
+### ❌ Validation improves the model.
+
+Incorrect.
+
+Validation only measures model performance.
+
+No learning occurs during validation.
+
+---
+
+### ❌ The optimizer runs during validation.
+
+Incorrect.
+
+The optimizer is used only during training.
+
+Validation performs only a forward pass.
+
+---
 
 # Key Takeaways
 
@@ -772,3 +1178,8 @@ No learning occurs during validation.
 - One optimizer update occurs after every batch.
 - After each epoch, Trainer can evaluate and save checkpoints.
 - Training continues until `num_train_epochs` is completed.
+- Training updates the model weights.
+- Validation uses the updated weights.
+- Validation never changes the weights.
+- Validation measures how well the updated model generalizes to unseen data.
+- Every new epoch starts from the weights learned in the previous epoch.
