@@ -449,3 +449,372 @@ Next Word Prediction
 - For text classification, we directly use `AutoModelForSequenceClassification`.
 - We do **not** need to load `AutoModel` separately.
 - Hugging Face selects the appropriate architecture based on the task by attaching the required prediction head to the base Transformer.
+
+# Understanding `num_labels` in AutoModelForSequenceClassification
+
+One of the most confusing concepts for beginners is understanding why the model sometimes predicts only **2 classes** even when the dataset contains **3 classes**.
+
+Let's understand this step by step.
+
+---
+
+# Is `distilbert-base-uncased` a Binary Classification Model?
+
+**No.**
+
+`distilbert-base-uncased` is **not** a sentiment classification model.
+
+It is a **pretrained language model**.
+
+During pretraining, it learns:
+
+- English grammar
+- Vocabulary
+- Sentence structure
+- Contextual word representations
+- Relationships between words
+
+It does **not** learn any downstream task such as:
+
+- Sentiment Analysis
+- Spam Detection
+- News Classification
+- Topic Classification
+
+Its purpose is to understand language, not classify it.
+
+---
+
+# What happens when we use AutoModelForSequenceClassification?
+
+When we write
+
+```python
+from transformers import AutoModelForSequenceClassification
+
+model = AutoModelForSequenceClassification.from_pretrained(
+    "distilbert-base-uncased"
+)
+```
+
+Hugging Face automatically adds a **classification head** on top of the pretrained DistilBERT encoder.
+
+```
+Input Text
+      │
+      ▼
+DistilBERT Encoder
+      │
+      ▼
+Classification Head
+      │
+      ▼
+Predicted Class
+```
+
+The DistilBERT encoder comes from the pretrained checkpoint.
+
+The classification head is created specifically for sequence classification.
+
+---
+
+# Why does the model show `num_labels = 2`?
+
+If we execute
+
+```python
+print(model.config.num_labels)
+```
+
+the output is
+
+```python
+2
+```
+
+Many beginners think this means
+
+> "DistilBERT is a binary classification model."
+
+This is **incorrect**.
+
+The reason is much simpler.
+
+When `num_labels` is not specified,
+
+Hugging Face creates the classification head using the default configuration.
+
+The default value is
+
+```python
+num_labels = 2
+```
+
+Therefore, the classification head contains **2 output neurons**.
+
+```
+Classification Head
+
+      │
+      ├── Class 0
+      └── Class 1
+```
+
+This is only the default configuration.
+
+It does **not** describe what the pretrained DistilBERT encoder has learned.
+
+---
+
+# Why doesn't Hugging Face automatically know the number of classes?
+
+Consider the following code:
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained(
+    "distilbert-base-uncased"
+)
+```
+
+At this point,
+
+the model knows only
+
+- which pretrained checkpoint to download
+- which architecture to build
+
+It does **not** know
+
+- which dataset will be used
+- how many classes exist
+- what task will be performed
+
+For example,
+
+later we may use
+
+```python
+load_dataset("zeroshot/twitter-financial-news-sentiment")
+```
+
+or
+
+```python
+load_dataset("ag_news")
+```
+
+or
+
+```python
+load_dataset("imdb")
+```
+
+These datasets contain different numbers of classes.
+
+Since the model has no information about the dataset yet,
+
+it uses the default value
+
+```python
+num_labels = 2
+```
+
+---
+
+# Specifying the Number of Labels
+
+If our dataset contains three sentiment classes
+
+```
+0 → Negative
+
+1 → Neutral
+
+2 → Positive
+```
+
+then we should create the model as
+
+```python
+model = AutoModelForSequenceClassification.from_pretrained(
+    "distilbert-base-uncased",
+    num_labels=3
+)
+```
+
+Now
+
+```python
+print(model.config.num_labels)
+```
+
+returns
+
+```python
+3
+```
+
+The classification head becomes
+
+```
+Classification Head
+
+      │
+      ├── Class 0
+      ├── Class 1
+      └── Class 2
+```
+
+---
+
+# Why is `num_labels` important?
+
+During training,
+
+the model predicts one score (logit) for each output neuron.
+
+Suppose the dataset contains
+
+```
+Labels
+
+0
+
+1
+
+2
+```
+
+The model must therefore produce
+
+```
+Output
+
+Logit for Class 0
+
+Logit for Class 1
+
+Logit for Class 2
+```
+
+If the model has only two output neurons,
+
+```
+Class 0
+
+Class 1
+```
+
+but the dataset contains
+
+```
+Label = 2
+```
+
+PyTorch cannot compute the loss because there is no output corresponding to class **2**.
+
+The training fails with
+
+```text
+IndexError: Target 2 is out of bounds.
+```
+
+---
+
+# Difference Between the Base Model and the Classification Head
+
+```
+distilbert-base-uncased
+
+↓
+
+Learns English Language
+
+✓ Grammar
+
+✓ Vocabulary
+
+✓ Context
+
+✓ Sentence Meaning
+
+✗ No Sentiment Classification
+```
+
+```
+AutoModelForSequenceClassification
+
+↓
+
+Adds Classification Head
+
+↓
+
+Number of output neurons depends on
+
+num_labels
+```
+
+---
+
+# Complete Flow
+
+```
+distilbert-base-uncased
+        │
+        ▼
+Pretrained Language Model
+        │
+        ▼
+AutoModelForSequenceClassification
+        │
+        ▼
+Adds Classification Head
+        │
+        ▼
+num_labels decides
+the number of output neurons
+        │
+        ▼
+Fine-Tune on Your Dataset
+```
+
+---
+
+# Common Misconceptions
+
+### ❌ `distilbert-base-uncased` is a binary classification model.
+
+**Wrong.**
+
+It is a pretrained language model.
+
+---
+
+### ❌ `num_labels=2` means DistilBERT learned only two classes.
+
+**Wrong.**
+
+Only the newly created classification head has two output neurons by default.
+
+---
+
+### ❌ Hugging Face automatically detects the number of dataset classes.
+
+**Wrong.**
+
+The model is created before it sees the dataset.
+
+Therefore, the user must specify `num_labels` whenever the default does not match the task.
+
+---
+
+# Key Takeaways
+
+- `distilbert-base-uncased` is a pretrained language model.
+- It understands English but is not trained for sentiment classification.
+- `AutoModelForSequenceClassification` adds a classification head.
+- The number of output neurons is controlled by `num_labels`.
+- If `num_labels` is not specified, the default value is **2**.
+- The number of output neurons must match the number of classes in the dataset.
+- Otherwise, training fails with errors such as `IndexError: Target 2 is out of bounds`.
